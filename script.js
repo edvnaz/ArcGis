@@ -1,54 +1,54 @@
 var app;
 
-    require(["esri/Color",
-      "dojo/string",
-      "dijit/registry", 
-      "dojo/on",
-      "dojo/parser",
-      "esri/config",
-      "esri/map",
-      "esri/layers/ArcGISDynamicMapServiceLayer",
-      "esri/graphic",
-      "esri/tasks/Geoprocessor",
-      "esri/tasks/FeatureSet",
-      "esri/toolbars/draw",
-      "esri/symbols/SimpleLineSymbol",
-      "esri/symbols/SimpleFillSymbol"
-      ],
-      function(Color, string, registry, on, parser, esriConfig, Map, ArcGISDynamicMapServiceLayer, Graphic, Geoprocessor, FeatureSet, Draw, SimpleLineSymbol, SimpleFillSymbol){
+require(["esri/Color",
+  "dojo/string",
+  "dijit/registry", 
+  "dojo/on",
+  "dojo/parser",
+  "esri/config",
+  "esri/map",
+  "esri/layers/ArcGISDynamicMapServiceLayer",
+  "esri/graphic",
+  "esri/tasks/Geoprocessor",
+  "esri/tasks/FeatureSet",
+  "esri/toolbars/draw",
+  "esri/symbols/SimpleLineSymbol",
+  "esri/symbols/SimpleFillSymbol"
+  ],
+  function(Color, string, registry, on, parser, esriConfig, Map, ArcGISDynamicMapServiceLayer, Graphic, Geoprocessor, FeatureSet, Draw, SimpleLineSymbol, SimpleFillSymbol){
 
-        var map, gp, toolbar, graphic;
-        var featureSet = new FeatureSet();
-        var features= [];
-        
-        parser.parse();
+    var map, gp, toolbar, graphic;
+    var featureSet = new FeatureSet();
+    var features= [];
+    
+    parser.parse();
 
-        app = {
-          "map": map,
-          "toolbar": toolbar
-        };
+    app = {
+      "map": map,
+      "toolbar": toolbar
+    };
 
-        /*Initialize map, GP & image params*/
-        app.map = map = new Map("mapDiv", { 
-          basemap: "topo", 
-          center: [-87.572, 33.329],
-          zoom: 6
-        });
+    /*Initialize map, GP & image params*/
+    app.map = map = new Map("mapDiv", { 
+      basemap: "topo", 
+      center: [-87.572, 33.329],
+      zoom: 6
+    });
 
 
-        document.getElementById("count").addEventListener("click", function(){
-          compute();
-        });
+    document.getElementById("count").addEventListener("click", function(){
+      compute();
+    });
 
-        document.getElementById("clean").addEventListener("click", function(){
-          clean();
-        });
+    document.getElementById("clean").addEventListener("click", function(){
+      clean();
+    });
 
-        map.on("load", initTools);
+    map.on("load", initTools);
 
-        var populationMap = new ArcGISDynamicMapServiceLayer("https://sampleserver1.arcgisonline.com/ArcGIS/rest/services/Demographics/ESRI_Population_World/MapServer");
-        populationMap.setOpacity(0);
-        map.addLayer(populationMap);
+    var populationMap = new ArcGISDynamicMapServiceLayer("https://sampleserver1.arcgisonline.com/ArcGIS/rest/services/Demographics/ESRI_Population_World/MapServer");
+    populationMap.setOpacity(0);
+    map.addLayer(populationMap);
 
         //identify proxy page to use if the toJson payload to the geoprocessing service is greater than 2000 characters.
         //If this null or not available the gp.execute operation will not work.  Otherwise it will do a http post to the proxy.
