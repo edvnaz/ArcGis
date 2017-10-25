@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <title>EP</title>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/3.22/dijit/themes/claro/claro.css">
+  <link rel="stylesheet" href="https://js.arcgis.com/3.22/esri/css/esri.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <style>
+    html, body, #mapDiv {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+    }
+
+    /*SideBar*/
+    .sidenav {
+      height: 100%;
+      width: 0;
+      position: fixed;
+      z-index: 1;
+      top: 0;
+      left: 0;
+      background-color: #111;
+      overflow-x: hidden;
+      transition: 0.5s;
+      padding-top: 60px;
+    }
+
+    .sidenav a {
+      padding: 8px 8px 8px 32px;
+      text-decoration: none;
+      font-size: 25px;
+      color: #818181;
+      display: block;
+      transition: 0.3s;
+    }
+
+    .sidenav a:hover {
+      color: #f1f1f1;
+    }
+
+    #main {
+      transition: margin-left .5s;
+      height: 100%;
+    }
+
+    @media screen and (max-height: 450px) {
+      .sidenav {padding-top: 15px;}
+      .sidenav a {font-size: 18px;}
+    }
+
+
+    #sidebar {
+      height: 40px;
+      width: 15px;
+      padding: 0;
+      margin: 0;
+      background-color: white; 
+      font-size: 25px;
+      position: absolute;
+      z-index: 1;
+      cursor:pointer;
+    }
+
+
+    .nav_button {
+      margin: 15px;
+      padding: 10px;
+      display: block;
+      background-color: #e7e7e7;
+      color: black; 
+      border: none;
+      color: black;
+      padding: 15px 32px;
+      text-decoration: none;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .nav_button:hover {
+      background-color: #F2F2F2;
+    }
+
+    .dijitButtonNode {
+      border: 0px;
+    }
+
+  </style>
+
+  <script>var dojoConfig = { parseOnLoad: true };</script>
+  <script src="https://js.arcgis.com/3.22/"></script>
+  <script>
+    var app;
+
+    require(["esri/Color",
+      "dojo/string",
+      "dijit/registry", 
+      "dojo/on",
+      "dojo/parser",
+      "esri/config",
+      "esri/map",
+      "esri/layers/ArcGISDynamicMapServiceLayer",
+      "esri/graphic",
+      "esri/tasks/Geoprocessor",
+      "esri/tasks/FeatureSet",
+      "esri/toolbars/draw",
+      "esri/symbols/SimpleLineSymbol",
+      "esri/symbols/SimpleFillSymbol"
+      ],
+      function(Color, string, registry, on, parser, esriConfig, Map, ArcGISDynamicMapServiceLayer, Graphic, Geoprocessor, FeatureSet, Draw, SimpleLineSymbol, SimpleFillSymbol){
+
+        var map, gp, toolbar, graphic;
+        var featureSet = new FeatureSet();
+        var features= [];
+        
+        parser.parse();
+
+        app = {
+          "map": map,
+          "toolbar": toolbar
+        };
+
+        /*Initialize map, GP & image params*/
+        app.map = map = new Map("mapDiv", { 
+          basemap: "topo", 
+          center: [-87.572, 33.329],
+          zoom: 6
+        });
+
+
+        document.getElementById("count").addEventListener("click", function(){
+          compute();
+        });
+
+        document.getElementById("clean").addEventListener("click", function(){
+          clean();
+        });
+
+        map.on("load", initTools);
+
+        var populationMap = new ArcGISDynamicMapServiceLayer("https://sampleserver1.arcgisonline.com/ArcGIS/rest/services/Demographics/ESRI_Population_World/MapServer");
+        populationMap.setOpacity(0);
+        map.addLayer(populationMap);
+
+        //identify proxy page to use if the toJson payload to the geoprocessing service is greater than 2000 characters.
+        //If this null or not available the gp.execute operation will not work.  Otherwise it will do a http post to the proxy.
+        esriConfig.defaults.io.proxyUrl = "/proxy/";
+        esriConfig.defaults.io.alwaysUseProxy = false;
+
+        function initTools(evtObj) {
+          gp = new Geoprocessor("https://sampleserver1.arcgisonline.com/ArcGIS/rest/services/Demographics/ESRI_Population_World/GPServer/PopulationSummary");
+          gp.setOutSpatialReference({wkid:102100}); 
+          gp.on("execute-complete", displayResults);
+
+          app.toolbar = toolbar = new Draw(evtObj.map);
+          toolbar.on("draw-complete", computeZonalStats);
+        }
+
+        function computeZonalStats(evtObj) {
+          var geometry = evtObj.geometry;
+          map.showZoomSlider();
+
+          var symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID,
+            new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID).setWidth(1.5),
+            new Color([0, 0, 0, 0.25])
+            );
+          graphic = new Graphic(geometry,symbol);
+
+          map.graphics.add(graphic);
+          toolbar.deactivate();
+
+          features.push(graphic);
+
+          featureSet.features = features;
+        }
+
+        function displayResults(evtObj) {
+          var results = evtObj.results;
+          var content = string.substitute("The population in the user defined polygon is ${number:dojo.number.format}.",{number:results[0].value.features[0].attributes.SUM});
+
+          alert(content);
+        }
+
+        function compute(){
+          var params = { "inputPoly":featureSet };
+          gp.execute(params);
+        }
+
+
+        function clean(){
+          features= [];
+          featureSet = new FeatureSet();
+          map.graphics.clear();
+        }
+
+      });
+
+    // Soninio meniu atidarymas, uzdarymas
+    function openNav() {
+      if(document.getElementById("mySidenav").style.width == "0px"){
+        document.getElementById("mySidenav").style.width = "250px";
+        document.getElementById("main").style.marginLeft = "250px";
+        $('#arrow').removeClass('glyphicon glyphicon-chevron-right').addClass('glyphicon glyphicon-chevron-left');
+      }else{
+        document.getElementById("mySidenav").style.width = "0px";
+        document.getElementById("main").style.marginLeft = "0px";
+        $('#arrow').removeClass('glyphicon glyphicon-chevron-left').addClass('glyphicon glyphicon-chevron-right');
+      }
+    }
+
+  </script>
+</head>
+
+<body>
+  <div id="mySidenav" style="width: 250px" class="sidenav">
+    <button class="nav_button" id="drawPoly" onclick="app.toolbar.activate(esri.toolbars.Draw.FREEHAND_POLYGON);app.map.hideZoomSlider();">Žymėti teritoriją</button>
+    <button class="nav_button" id="count">Skaiciuoti</button>
+    <button class="nav_button" id="clean">Valyti</button>
+  </div>
+
+  <div id="main" style="margin-left: 250px" >
+    <!-- Zemelapis -->
+    <div id="mapDiv"></div>
+    <!-- Soninio meniu rodykle -->
+    <span id="arrow" style="font-size: 27px; position: absolute; z-index: 1; top:50%" onclick="openNav()" class="glyphicon glyphicon-chevron-left"></span>
+  </div>
+  <div id="dialog1" title="Population Summary"></div>
+
+</body>
+</html>
